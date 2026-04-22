@@ -99,7 +99,7 @@ textarea:focus{border-color:#4CAF50}
   <!-- 登录页 -->
   <div v-if="page==='login'" class="auth-page">
     <h1>📚 课程评价社区</h1>
-    <input class="input" v-model="loginForm.username" placeholder="用户名">
+    <input class="input" v-model="loginForm.studentId" placeholder="学号（12位数字）" maxlength="12" inputmode="numeric">
     <input class="input" v-model="loginForm.password" type="password" placeholder="密码">
     <button class="btn btn-primary" @click="doLogin">登录</button>
     <span class="link" @click="page='register'">没有账号？立即注册</span>
@@ -108,19 +108,19 @@ textarea:focus{border-color:#4CAF50}
   <!-- 注册页 -->
   <div v-if="page==='register'" class="auth-page">
     <h1>注册新账号</h1>
-    <input class="input" v-model="regForm.username" placeholder="用户名">
+    <input class="input" v-model="regForm.studentId" placeholder="学号（12位数字）" maxlength="12" inputmode="numeric">
     <input class="input" v-model="regForm.password" type="password" placeholder="密码">
-    <input class="input" v-model="regForm.nickname" placeholder="昵称">
+    <input class="input" v-model="regForm.nickname" placeholder="姓名">
     <button class="btn btn-primary" @click="doRegister">注册</button>
     <span class="link" @click="page='login'">已有账号？去登录</span>
   </div>
 
   <!-- 主页面 -->
-  <template v-if="['courses','rank','profile'].includes(page)">
+  <template v-if="['courses','advisors','rank','profile'].includes(page)">
     <!-- 课程列表 -->
     <div v-if="page==='courses'" class="page">
       <div class="search-bar">
-        <input class="input" v-model="keyword" placeholder="🔍 搜索课程/老师" style="margin-bottom:0">
+        <input class="input" v-model="keyword" placeholder="🔍 搜索课程/老师/课程代码" style="margin-bottom:0">
       </div>
       <div class="chips">
         <span class="chip" :class="{active:selectedCat===c}" v-for="c in categories" @click="selectedCat=c">{{c}}</span>
@@ -128,8 +128,10 @@ textarea:focus{border-color:#4CAF50}
       <div class="card course-card" v-for="co in filteredCourses" :key="co.id" @click="openCourse(co.id)">
         <div class="course-info">
           <h3>{{co.name}}</h3>
-          <p>{{co.teacher}}</p>
+          <p>👨‍🏫 {{co.teacher}} · {{co.code}} · {{co.credits}}学分</p>
           <span class="tag">{{co.category}}</span>
+          <span v-if="co.required" class="tag" style="background:#FFF3E0;color:#FF9800">必修</span>
+          <span class="tag" style="background:#E3F2FD;color:#1976D2">{{co.semester}}</span>
           <div class="stars">{{getStars(co.avgScore)}}</div>
         </div>
         <div class="course-score">
@@ -138,6 +140,29 @@ textarea:focus{border-color:#4CAF50}
         </div>
       </div>
       <div v-if="filteredCourses.length===0" style="text-align:center;color:#999;padding:40px">暂无课程</div>
+    </div>
+
+    <!-- 导师列表 -->
+    <div v-if="page==='advisors'" class="page">
+      <div class="search-bar">
+        <input class="input" v-model="advisorKeyword" placeholder="🔍 搜索导师/院系/研究方向" style="margin-bottom:0">
+      </div>
+      <div class="chips">
+        <span class="chip" :class="{active:selectedDept===d}" v-for="d in depts" @click="selectedDept=d">{{d}}</span>
+      </div>
+      <div class="card course-card" v-for="a in filteredAdvisors" :key="a.id" @click="openAdvisor(a.id)">
+        <div class="course-info">
+          <h3>{{a.name}}</h3>
+          <p>{{a.dept}}</p>
+          <p style="color:#999;font-size:12px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px">{{a.field}}</p>
+          <div class="stars">{{getStars(a.avgScore)}}</div>
+        </div>
+        <div class="course-score">
+          <div class="score">{{a.avgScore.toFixed(1)}}</div>
+          <div class="count">{{a.reviewCount}}条评价</div>
+        </div>
+      </div>
+      <div v-if="filteredAdvisors.length===0" style="text-align:center;color:#999;padding:40px">暂无导师</div>
     </div>
 
     <!-- 排行榜 -->
@@ -150,7 +175,7 @@ textarea:focus{border-color:#4CAF50}
         <div class="rank-num" :class="{gold:i===0,silver:i===1,bronze:i===2}">{{i+1}}</div>
         <div class="rank-info">
           <h4>{{co.name}}</h4>
-          <p>{{co.teacher}} · {{co.reviewCount}}条评价</p>
+          <p>{{co.teacher}} · {{co.code}} · {{co.reviewCount}}条评价</p>
         </div>
         <div style="font-size:20px;font-weight:bold;color:#4CAF50">{{co.avgScore.toFixed(1)}}</div>
       </div>
@@ -160,6 +185,7 @@ textarea:focus{border-color:#4CAF50}
     <div v-if="page==='profile'" class="page profile-page">
       <div class="avatar">👤</div>
       <h2>{{currentUser.nickname}}</h2>
+      <p style="color:#999;margin-bottom:30px">学号：{{currentUser.studentId}}</p>
       <button class="btn btn-outline" @click="doLogout">退出登录</button>
     </div>
 
@@ -167,6 +193,9 @@ textarea:focus{border-color:#4CAF50}
     <div class="bottom-nav">
       <div class="nav-item" :class="{active:page==='courses'}" @click="page='courses'">
         <span class="icon">📚</span>课程
+      </div>
+      <div class="nav-item" :class="{active:page==='advisors'}" @click="page='advisors'">
+        <span class="icon">🎓</span>导师
       </div>
       <div class="nav-item" :class="{active:page==='rank'}" @click="page='rank'">
         <span class="icon">🏆</span>排行榜
@@ -182,7 +211,7 @@ textarea:focus{border-color:#4CAF50}
     <button class="back-btn" @click="page='courses'">←</button>
     <div class="detail-header">
       <h2>{{detailCourse.name}}</h2>
-      <p style="color:#666">{{detailCourse.teacher}}</p>
+      <p style="color:#666">👨‍🏫 {{detailCourse.teacher}} · {{detailCourse.code}} · {{detailCourse.credits}}学分 · {{detailCourse.semester}}</p>
       <div class="big-score">{{detailCourse.avgScore.toFixed(1)}}</div>
       <div style="color:#999">{{detailCourse.reviewCount}}条评价</div>
     </div>
@@ -233,13 +262,66 @@ textarea:focus{border-color:#4CAF50}
 
     <textarea v-model="writeForm.comment" placeholder="写下你的评价..."></textarea>
 
-    <div class="upload-area" @click="$refs.videoInput.click()">
-      🎬 点击选择课堂视频片段
-      <input ref="videoInput" type="file" accept="video/*" style="display:none" @change="onVideoSelect">
-    </div>
-    <video v-if="writeForm.videoUrl" class="video-player" :src="writeForm.videoUrl" controls></video>
-
     <button class="btn btn-primary" style="margin-top:16px" @click="submitReview">发布评价</button>
+  </div>
+
+  <!-- 导师详情页 -->
+  <div v-if="page==='advisorDetail'" class="page" style="position:relative">
+    <button class="back-btn" @click="page='advisors'">←</button>
+    <div class="detail-header">
+      <h2>{{detailAdvisor.name}}</h2>
+      <p style="color:#666">{{detailAdvisor.dept}}</p>
+      <p style="color:#999;font-size:13px;margin-top:8px;padding:0 20px">{{detailAdvisor.field}}</p>
+      <p style="color:#4CAF50;font-size:13px;margin-top:4px">📧 {{detailAdvisor.email}}</p>
+      <div class="big-score">{{detailAdvisor.avgScore.toFixed(1)}}</div>
+      <div style="color:#999">{{detailAdvisor.reviewCount}}条评价</div>
+    </div>
+
+    <div class="radar-wrap">
+      <canvas ref="advisorRadarCanvas" width="280" height="280"></canvas>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+      <button class="btn btn-primary" style="width:auto;padding:8px 20px" @click="page='writeAdvisor'">✏️ 写评价</button>
+    </div>
+
+    <h3 style="margin-bottom:10px">全部评价</h3>
+    <div class="card" v-for="r in advisorReviews" :key="r.id">
+      <div class="review-header">
+        <span class="review-user">{{r.username}}</span>
+        <span class="review-score">{{r.overall.toFixed(1)}}分</span>
+      </div>
+      <div class="review-comment">{{r.comment}}</div>
+      <div class="review-tags" v-if="r.tags"><span class="tag" v-for="t in r.tags.split(' · ')">{{t}}</span></div>
+      <div class="review-footer">
+        <span>{{formatDate(r.timestamp)}}</span>
+        <span class="vote-btns">
+          <button @click="likeAdvisorReview(r.id)">👍 {{r.likes}}</button>
+          <button @click="dislikeAdvisorReview(r.id)">👎 {{r.dislikes}}</button>
+        </span>
+      </div>
+    </div>
+    <div v-if="advisorReviews.length===0" style="text-align:center;color:#999;padding:30px">暂无评价，快来写第一条吧！</div>
+  </div>
+
+  <!-- 导师写评价页 -->
+  <div v-if="page==='writeAdvisor'" class="page" style="position:relative">
+    <button class="back-btn" @click="page='advisorDetail'">←</button>
+    <h2 style="text-align:center;margin-bottom:20px;padding-top:8px">评价导师</h2>
+
+    <div class="score-row" v-for="d in advisorDimensions" :key="d.key">
+      <label><span>{{d.label}}</span><span>{{advisorWriteForm[d.key].toFixed(1)}}</span></label>
+      <input type="range" min="0" max="5" step="0.1" v-model.number="advisorWriteForm[d.key]">
+    </div>
+
+    <h4 style="margin-bottom:8px">选择标签</h4>
+    <div class="tag-select">
+      <span class="tag-btn" v-for="t in advisorTags" :class="{selected:advisorWriteForm.tags.includes(t)}" @click="toggleAdvisorTag(t)">{{t}}</span>
+    </div>
+
+    <textarea v-model="advisorWriteForm.comment" placeholder="写下你对导师的评价..."></textarea>
+
+    <button class="btn btn-primary" style="margin-top:16px" @click="submitAdvisorReview">发布评价</button>
   </div>
 </div>
 
@@ -256,17 +338,246 @@ createApp({
       const init = {
         users:[],
         courses:[
-          {id:1,name:'高等数学',teacher:'张教授',category:'理学',viewCount:120},
-          {id:2,name:'数据结构',teacher:'李教授',category:'计算机',viewCount:200},
-          {id:3,name:'操作系统',teacher:'王教授',category:'计算机',viewCount:85},
-          {id:4,name:'大学英语',teacher:'刘教授',category:'外语',viewCount:150},
-          {id:5,name:'线性代数',teacher:'陈教授',category:'理学',viewCount:90},
-          {id:6,name:'计算机网络',teacher:'赵教授',category:'计算机',viewCount:175},
-          {id:7,name:'移动互联网技术',teacher:'周教授',category:'计算机',viewCount:210},
-          {id:8,name:'数据库原理',teacher:'吴教授',category:'计算机',viewCount:130},
-          {id:9,name:'软件工程',teacher:'郑教授',category:'计算机',viewCount:95},
-          {id:10,name:'概率论',teacher:'孙教授',category:'理学',viewCount:70}
+          {id:1,name:'学术英语',teacher:'李宏德',category:'公共基础课',code:'FL6001',credits:2,semester:'26春季',required:true,viewCount:0},
+          {id:2,name:'学术英语',teacher:'王冬燕',category:'公共基础课',code:'FL6001',credits:2,semester:'26春季',required:true,viewCount:0},
+          {id:3,name:'学术英语',teacher:'王越西',category:'公共基础课',code:'FL6001',credits:2,semester:'26春季',required:true,viewCount:0},
+          {id:4,name:'学术英语',teacher:'雷秀云',category:'公共基础课',code:'FL6001',credits:2,semester:'26春季',required:true,viewCount:0},
+          {id:5,name:'学术英语',teacher:'杨晓红',category:'公共基础课',code:'FL6001',credits:2,semester:'26春季',required:true,viewCount:0},
+          {id:6,name:'学术英语',teacher:'赵鸿雁',category:'公共基础课',code:'FL6001',credits:2,semester:'26春季',required:true,viewCount:0},
+          {id:7,name:'学术英语',teacher:'彭阳辉',category:'公共基础课',code:'FL6001',credits:2,semester:'26春季',required:true,viewCount:0},
+          {id:8,name:'学术英语',teacher:'沈燕',category:'公共基础课',code:'FL6001',credits:2,semester:'26春季',required:true,viewCount:0},
+          {id:9,name:'学术英语',teacher:'杨惠玉',category:'公共基础课',code:'FL6001',credits:2,semester:'26春季',required:true,viewCount:0},
+          {id:10,name:'学术写作、规范与伦理',teacher:'李红兵',category:'公共基础课',code:'GE6001',credits:1,semester:'25秋季',required:true,viewCount:0},
+          {id:11,name:'新时代中国特色社会主义理论与实践',teacher:'贺莉',category:'公共基础课',code:'MARX6001',credits:2,semester:'26春季',required:true,viewCount:0},
+          {id:12,name:'新时代中国特色社会主义理论与实践',teacher:'魏华',category:'公共基础课',code:'MARX6001',credits:2,semester:'26春季',required:true,viewCount:0},
+          {id:13,name:'新时代中国特色社会主义理论与实践',teacher:'魏崇辉',category:'公共基础课',code:'MARX6001',credits:2,semester:'26春季',required:true,viewCount:0},
+          {id:14,name:'新时代中国特色社会主义理论与实践',teacher:'邓涛',category:'公共基础课',code:'MARX6001',credits:2,semester:'26春季',required:true,viewCount:0},
+          {id:15,name:'新时代中国特色社会主义理论与实践',teacher:'张杨',category:'公共基础课',code:'MARX6001',credits:2,semester:'26春季',required:true,viewCount:0},
+          {id:16,name:'新时代中国特色社会主义理论与实践',teacher:'孟少杰',category:'公共基础课',code:'MARX6001',credits:2,semester:'26春季',required:true,viewCount:0},
+          {id:17,name:'新时代中国特色社会主义理论与实践',teacher:'李主斌',category:'公共基础课',code:'MARX6001',credits:2,semester:'26春季',required:true,viewCount:0},
+          {id:18,name:'新时代中国特色社会主义理论与实践',teacher:'吕旭龙',category:'公共基础课',code:'MARX6001',credits:2,semester:'26春季',required:true,viewCount:0},
+          {id:19,name:'新时代中国特色社会主义理论与实践',teacher:'张雪梅',category:'公共基础课',code:'MARX6001',credits:2,semester:'26春季',required:true,viewCount:0},
+          {id:20,name:'新时代中国特色社会主义理论与实践',teacher:'曲婧',category:'公共基础课',code:'MARX6001',credits:2,semester:'26春季',required:true,viewCount:0},
+          {id:21,name:'新时代中国特色社会主义理论与实践',teacher:'黄庆桥',category:'公共基础课',code:'MARX6001',credits:2,semester:'26春季',required:true,viewCount:0},
+          {id:22,name:'自然辩证法概论',teacher:'王延锋',category:'公共基础课',code:'MARX6003',credits:1,semester:'26春季',required:true,viewCount:0},
+          {id:23,name:'自然辩证法概论',teacher:'吕鹏',category:'公共基础课',code:'MARX6003',credits:1,semester:'26春季',required:true,viewCount:0},
+          {id:24,name:'自然辩证法概论',teacher:'闫宏秀',category:'公共基础课',code:'MARX6003',credits:1,semester:'26春季',required:true,viewCount:0},
+          {id:25,name:'自然辩证法概论',teacher:'穆蕴秋',category:'公共基础课',code:'MARX6003',credits:1,semester:'26春季',required:true,viewCount:0},
+          {id:26,name:'自然辩证法概论',teacher:'刘铮',category:'公共基础课',code:'MARX6003',credits:1,semester:'26春季',required:true,viewCount:0},
+          {id:27,name:'自然辩证法概论',teacher:'沈辛成',category:'公共基础课',code:'MARX6003',credits:1,semester:'26春季',required:true,viewCount:0},
+          {id:28,name:'自然辩证法概论',teacher:'萨日娜',category:'公共基础课',code:'MARX6003',credits:1,semester:'26春季',required:true,viewCount:0},
+          {id:29,name:'自然辩证法概论',teacher:'毛丹',category:'公共基础课',code:'MARX6003',credits:1,semester:'26春季',required:true,viewCount:0},
+          {id:30,name:'自然辩证法概论',teacher:'柳海涛',category:'公共基础课',code:'MARX6003',credits:1,semester:'26春季',required:true,viewCount:0},
+          {id:31,name:'自然辩证法概论',teacher:'史斌',category:'公共基础课',code:'MARX6003',credits:1,semester:'26春季',required:true,viewCount:0},
+          {id:32,name:'自然辩证法概论',teacher:'李侠',category:'公共基础课',code:'MARX6003',credits:1,semester:'26春季',required:true,viewCount:0},
+          {id:33,name:'自然辩证法概论',teacher:'陆群峰',category:'公共基础课',code:'MARX6003',credits:1,semester:'26春季',required:true,viewCount:0},
+          {id:34,name:'定量分析：模型与方法',teacher:'周钢',category:'专业基础课',code:'MEM6001',credits:3,semester:'25秋季',required:true,viewCount:0},
+          {id:35,name:'定量分析：模型与方法',teacher:'潘常春',category:'专业基础课',code:'MEM6001',credits:3,semester:'25秋季',required:true,viewCount:0},
+          {id:36,name:'工程管理导论',teacher:'全林',category:'专业基础课',code:'MEM6002',credits:2,semester:'25秋26春季',required:true,viewCount:0},
+          {id:37,name:'工程管理导论',teacher:'黄丹',category:'专业基础课',code:'MEM6002',credits:2,semester:'25秋26春季',required:true,viewCount:0},
+          {id:38,name:'工程经济学',teacher:'殷翔',category:'专业基础课',code:'MEM6003',credits:2,semester:'25秋季',required:true,viewCount:0},
+          {id:39,name:'工程经济学',teacher:'杨忠直',category:'专业基础课',code:'MEM6003',credits:2,semester:'25秋季',required:true,viewCount:0},
+          {id:40,name:'质量与可靠性管理',teacher:'苗瑞',category:'专业基础课',code:'MEM6005',credits:2,semester:'25秋季',required:true,viewCount:0},
+          {id:41,name:'工程信息管理',teacher:'蔡鸿明',category:'专业基础课',code:'MEM6006',credits:2,semester:'25秋季',required:true,viewCount:0},
+          {id:42,name:'工程信息管理',teacher:'刘雨桐',category:'专业基础课',code:'MEM6006',credits:2,semester:'25秋季',required:true,viewCount:0},
+          {id:43,name:'学术报告与研讨会',teacher:'孔令和',category:'专业前沿课',code:'GE6012',credits:2,semester:'26秋季',required:true,viewCount:0},
+          {id:44,name:'人力资源与沟通管理',teacher:'陶祁',category:'专业前沿课',code:'MEM6301',credits:2,semester:'25秋26春季',required:false,viewCount:0},
+          {id:45,name:'领导力',teacher:'张兴福',category:'专业前沿课',code:'MEM6302',credits:2,semester:'25秋季',required:false,viewCount:0},
+          {id:46,name:'工程管理实践案例分析',teacher:'李柠',category:'专业前沿课',code:'MEM6303',credits:2,semester:'26春季',required:false,viewCount:0},
+          {id:47,name:'库存与供应链管理',teacher:'张文杰',category:'专业前沿课',code:'MEM6304',credits:2,semester:'25秋季',required:false,viewCount:0},
+          {id:48,name:'风险管理与高效决策',teacher:'王春香',category:'专业前沿课',code:'MEM6305',credits:2,semester:'25秋26春季',required:false,viewCount:0},
+          {id:49,name:'系统创新与工程实践',teacher:'郭朝晖',category:'专业前沿课',code:'MEM6306',credits:2,semester:'26春季',required:false,viewCount:0},
+          {id:50,name:'社会创新与创业发展',teacher:'卢永彬',category:'专业前沿课',code:'MEM6307',credits:2,semester:'26春季',required:false,viewCount:0},
+          {id:51,name:'名企走访实践',teacher:'孔令和',category:'专业前沿课',code:'MEM6308',credits:1,semester:'26秋季',required:true,viewCount:0},
+          {id:52,name:'区块链与金融科技创新概论',teacher:'范磊',category:'专业前沿课',code:'MEM6309',credits:2,semester:'25秋季',required:false,viewCount:0},
+          {id:53,name:'运营管理',teacher:'邵晓峰',category:'专业前沿课',code:'MEM6310',credits:2,semester:'25秋26春季',required:false,viewCount:0},
+          {id:54,name:'运营管理',teacher:'徐丽群',category:'专业前沿课',code:'MEM6310',credits:2,semester:'25秋26春季',required:false,viewCount:0},
+          {id:55,name:'工程管理法律概论',teacher:'王猛',category:'专业前沿课',code:'MEM6311',credits:2,semester:'25秋季',required:false,viewCount:0},
+          {id:56,name:'大数据与互联网思维',teacher:'吴晨涛',category:'专业选修课',code:'MEM8301',credits:2,semester:'26秋季',required:false,viewCount:0},
+          {id:57,name:'物联网技术与发展趋势',teacher:'陈奕超',category:'专业选修课',code:'MEM8302',credits:2,semester:'25秋季',required:false,viewCount:0},
+          {id:58,name:'物联网技术与发展趋势',teacher:'俞嘉地',category:'专业选修课',code:'MEM8302',credits:2,semester:'25秋季',required:false,viewCount:0},
+          {id:59,name:'人工智能',teacher:'张晓凡',category:'专业选修课',code:'MEM8303',credits:2,semester:'25秋26春季',required:false,viewCount:0},
+          {id:60,name:'网络信息安全理论与技术',teacher:'李生红',category:'专业选修课',code:'MEM8304',credits:2,semester:'25秋季',required:false,viewCount:0},
+          {id:61,name:'移动互联网前沿技术',teacher:'孔令和',category:'专业选修课',code:'MEM8305',credits:2,semester:'26春季',required:false,viewCount:0},
+          {id:62,name:'移动互联网前沿技术',teacher:'沈耀',category:'专业选修课',code:'MEM8305',credits:2,semester:'26春季',required:false,viewCount:0},
+          {id:63,name:'新能源技术及应用',teacher:'殳国华',category:'专业选修课',code:'MEM8306',credits:2,semester:'25秋季',required:false,viewCount:0},
+          {id:64,name:'新能源技术及应用',teacher:'李然',category:'专业选修课',code:'MEM8306',credits:2,semester:'25秋季',required:false,viewCount:0},
+          {id:65,name:'新能源技术及应用',teacher:'吴超',category:'专业选修课',code:'MEM8306',credits:2,semester:'25秋季',required:false,viewCount:0},
+          {id:66,name:'大规模集成电路概述',teacher:'毛志刚',category:'专业选修课',code:'MEM8307',credits:2,semester:'25秋季',required:false,viewCount:0},
+          {id:67,name:'新型电力系统技术概论',teacher:'王志新',category:'专业选修课',code:'MEM8308',credits:2,semester:'26春季',required:false,viewCount:0},
+          {id:68,name:'智能机器人',teacher:'王景川',category:'专业选修课',code:'MEM8309',credits:2,semester:'26春季',required:false,viewCount:0}
         ],
+        advisors:[
+          {id:1,name:'葛骑岐',email:'geqq@sjtu.edu.cn',dept:'自动化与感知学院',field:'换能器基阵与声纳；车船绿色动力；空海潜平台及通信定位；海洋光纤传感与多场融合探测',viewCount:0},
+          {id:2,name:'李建勋',email:'lijx@sjtu.edu.cn',dept:'自动化与感知学院',field:'信息融合',viewCount:0},
+          {id:3,name:'江俊杰',email:'jiangjunjie@sjtu.edu.cn',dept:'自动化与感知学院',field:'电力设备状态监测技术、光学传感技术、高温超导应用技术',viewCount:0},
+          {id:4,name:'刘哲',email:'liuzhesjtu@sjtu.edu.cn',dept:'自动化与感知学院',field:'机器人控制、无人驾驶系统、多机器人系统',viewCount:0},
+          {id:5,name:'杨佳苗',email:'jiamiaoyang@sjtu.edu.cn',dept:'自动化与感知学院',field:'光学检测/成像、生物医学光子学、人工智能、光计算、机器视觉等',viewCount:0},
+          {id:6,name:'高安柱',email:'anzhu_gao@sjtu.edu.cn',dept:'自动化与感知学院',field:'医疗机器人；手术机器人；工业柔性机器人；柔性灵巧手',viewCount:0},
+          {id:7,name:'陈彩莲',email:'cailianchen@sjtu.edu.cn',dept:'自动化与感知学院',field:'信息物理融合系统，车联网',viewCount:0},
+          {id:8,name:'张卫东',email:'wdzhang@sjtu.edu.cn',dept:'自动化与感知学院',field:'机器人，智能控制，机器学习',viewCount:0},
+          {id:9,name:'陈卫东',email:'wdchen@sjtu.edu.cn',dept:'自动化与感知学院',field:'智能机器人',viewCount:0},
+          {id:10,name:'何建平',email:'jphe@sjtu.edu.cn',dept:'自动化与感知学院',field:'安全攻防理论与平台、机器人智能控制系统、多自主体学习、分布式学习和优化',viewCount:0},
+          {id:11,name:'阎威武',email:'yanwwsjtu@sjtu.edu.cn',dept:'自动化与感知学院',field:'机器学习、工业智能、大数据分析、智能制造',viewCount:0},
+          {id:12,name:'李红兵',email:'lihongbing@sjtu.edu.cn',dept:'自动化与感知学院',field:'机器人、智能诊疗装备、医疗机器人、医疗器械、机器人学',viewCount:0},
+          {id:13,name:'茅旭初',email:'maoxc@sjtu.edu.cn',dept:'自动化与感知学院',field:'全球卫星导航系统、导航与控制',viewCount:0},
+          {id:14,name:'谷朝臣',email:'jacygu@sjtu.edu.cn',dept:'自动化与感知学院',field:'精密仪器与复杂光机电系统、视觉感知计算与智能自主系统、运动控制与高性能伺服系统',viewCount:0},
+          {id:15,name:'王春香',email:'wangcx@sjtu.edu.cn',dept:'自动化与感知学院',field:'主要从事与智能车辆有关的定位、导航、感知、控制等方面的理论研究，以及自主驾驶、辅助驾驶和协作驾驶等方面的应用研究。 https://cyberc3.sjtu.edu.cn/index.htm',viewCount:0},
+          {id:16,name:'雷华明',email:'hmlei@sjtu.edu.cn',dept:'自动化与感知学院',field:'电磁探测与传感；智能无损检测；微弱信号检测',viewCount:0},
+          {id:17,name:'雷冲',email:'leiqhd@sjtu.edu.cn',dept:'自动化与感知学院',field:'微纳器件、空间载荷、高精度磁探、生物传感、食品安全。',viewCount:0},
+          {id:18,name:'宫亮',email:'lianggong@sjtu.edu.cn',dept:'自动化与感知学院',field:'工业监控、机器学习、图像识别',viewCount:0},
+          {id:19,name:'鲍其莲',email:'qlbao@sjtu.edu.cn',dept:'自动化与感知学院',field:'智能控制，组合导航',viewCount:0},
+          {id:20,name:'唐俊华',email:'junhuatang@sjtu.edu.cn',dept:'自动化与感知学院',field:'下一代互联网技术，新型通信网络及其安全机制，大数据安全，人工智能应用等',viewCount:0},
+          {id:21,name:'李海华',email:'lihaihua@sjtu.edu.cn',dept:'自动化与感知学院',field:'通讯集成电路及芯片、微纳加工技术制备',viewCount:0},
+          {id:22,name:'郑毅',email:'yizheng@sjtu.edu.cn',dept:'自动化与感知学院',field:'工业数据分析、机器人控制、工业过程智能建模、优化与控制',viewCount:0},
+          {id:23,name:'马进',email:'majin@sjtu.edu.cn',dept:'自动化与感知学院',field:'大数据与人工智能应用、网络空间安全综合管理新技术、智能网联汽车信息安全、网络安全态势感知',viewCount:0},
+          {id:24,name:'唐旻',email:'tm222@sjtu.edu.cn',dept:'自动化与感知学院',field:'高速集成电路信号/电源完整性分析；系统级封装的多物理场建模和优化设计。',viewCount:0},
+          {id:25,name:'冷静文',email:'leng-jw@sjtu.edu.cn',dept:'自动化与感知学院',field:'系统结构、人工智能在嵌入式端的应用',viewCount:0},
+          {id:26,name:'邬晶',email:'jingwu@sjtu.edu.cn',dept:'自动化与感知学院',field:'分布式网络化系统控制与优化，信息物理系统的安全控制与状态估计，分布式计算及其在智能电网、智能水网、智能工厂等工业的应用。',viewCount:0},
+          {id:27,name:'刘伟文',email:'weiwenliu@sjtu.edu.cn',dept:'自动化与感知学院',field:'视觉检测、界面电泳与传感、电导检测',viewCount:0},
+          {id:28,name:'吴帆',email:'wu-fan@sjtu.edu.cn',dept:'自动化与感知学院',field:'无线网络、移动计算、博弈论算法及其应用、大数据',viewCount:0},
+          {id:29,name:'齐开悦',email:'tommy-qi@sjtu.edu.cn',dept:'自动化与感知学院',field:'信息论与信息安全，大数据信息处理，信息编码等',viewCount:0},
+          {id:30,name:'关新平',email:'xpguan@sjtu.edu.cn',dept:'自动化与感知学院',field:'控制科学与工程技术专家',viewCount:0},
+          {id:31,name:'潘理',email:'panli@sjtu.edu.cn',dept:'自动化与感知学院',field:'网络空间安全，基于大数据的公共安全管理',viewCount:0},
+          {id:32,name:'文玉梅',email:'yumei.wen@sjtu.edu.cn',dept:'自动化与感知学院',field:'信息获取与处理，传感技术，智能仪器',viewCount:0},
+          {id:33,name:'周健军',email:'zhoujianjun@sjtu.edu.cn',dept:'自动化与感知学院',field:'集成电路设计',viewCount:0},
+          {id:34,name:'李金金',email:'lijinjin@sjtu.edu.cn',dept:'自动化与感知学院',field:'人工智能材料设计/精准医疗/图像处理',viewCount:0},
+          {id:35,name:'郁文贤',email:'wxyu@sjtu.edu.cn',dept:'自动化与感知学院',field:'雷达目标识别、遥感信息处理、融合导航定位',viewCount:0},
+          {id:36,name:'程秀兰',email:'xlcheng@sjtu.edu.cn',dept:'自动化与感知学院',field:'半导体器件与工艺，硅基无源/有源器件',viewCount:0},
+          {id:37,name:'诸葛群碧',email:'qunbi.zhuge@sjtu.edu.cn',dept:'自动化与感知学院',field:'超大容量光通信，数据中心光互联，智能光网络',viewCount:0},
+          {id:38,name:'蔡鸿明',email:'hmcai@sjtu.edu.cn',dept:'自动化与感知学院',field:'云计算 移动计算',viewCount:0},
+          {id:39,name:'薛广涛',email:'gt_xue@sjtu.edu.cn',dept:'自动化与感知学院',field:'物联网、大数据、云计算',viewCount:0},
+          {id:40,name:'涂仕奎',email:'tushikui@sjtu.edu.cn',dept:'自动化与感知学院',field:'机器学习、生物信息学',viewCount:0},
+          {id:41,name:'郑文立',email:'zhengwenli@sjtu.edu.cn',dept:'自动化与感知学院',field:'计算机体系结构',viewCount:0},
+          {id:42,name:'殷翔',email:'yinxiang@sjtu.edu.cn',dept:'自动化与感知学院',field:'理论研究：信息物理系统（CPS）、复杂任务博弈决策、智能控制算法、离散事件系统  应用研究：自主智能无人系统、机器人任务规划、智能制造系统、工业控制系统安全',viewCount:0},
+          {id:43,name:'王贺升',email:'wanghesheng@sjtu.edu.cn',dept:'自动化与感知学院',field:'机器人，视觉伺服，计算机视觉，无人驾驶，深度学习',viewCount:0},
+          {id:44,name:'朱淼',email:'miaozhu@sjtu.edu.cn',dept:'自动化与感知学院',field:'能源互联网、新能源发电系统、智能电网、分布式能源与微电网、电气工程新理论',viewCount:0},
+          {id:45,name:'顾昌展',email:'changzhan@sjtu.edu.cn',dept:'自动化与感知学院',field:'无线感知',viewCount:0},
+          {id:46,name:'黄文焘',email:'hwt8989@sjtu.edu.cn',dept:'自动化与感知学院',field:'交直流微电网控制保护与稳定，舰船综合电力系统与海洋能源',viewCount:0},
+          {id:47,name:'阮娜',email:'naruan@cs.sjtu.edu.cn',dept:'自动化与感知学院',field:'Security and Privacy.  Recently focus on: AI security / Blockchain',viewCount:0},
+          {id:48,name:'潘常春',email:'pan_cc@sjtu.edu.cn',dept:'自动化与感知学院',field:'大数据分析  智能优化算法  知识图谱',viewCount:0},
+          {id:49,name:'王红雨',email:'redrain@sjtu.edu.cn',dept:'自动化与感知学院',field:'导航制导与控制',viewCount:0},
+          {id:50,name:'何迪',email:'dihe@sjtu.edu.cn',dept:'自动化与感知学院',field:'无线通信，无线定位，卫星定位，非线性信号处理',viewCount:0},
+          {id:51,name:'赵旭',email:'zhaoxu@sjtu.edu.cn',dept:'自动化与感知学院',field:'计算机视觉、机器学习、模式识别、大数据分析、人工智能',viewCount:0},
+          {id:52,name:'唐新怀',email:'xinhuait@sjtu.edu.cn',dept:'自动化与感知学院',field:'知识图谱与知识工程，数据挖掘机器学习，海量信息处理，服务计算，边缘计算',viewCount:0},
+          {id:53,name:'陈海波',email:'haibochen@sjtu.edu.cn',dept:'人工智能学院',field:'操作系统、并行与分布式系统',viewCount:0},
+          {id:54,name:'严骏驰',email:'yanjunchi@sjtu.edu.cn',dept:'人工智能学院',field:'人工智能，机器学习，金融科技',viewCount:0},
+          {id:55,name:'宋涛',email:'songt333@sjtu.edu.cn',dept:'计算机学院',field:'分布式机器学习、大模型版权、AI+X等领域',viewCount:0},
+          {id:56,name:'沈备军',email:'bjshen@sjtu.edu.cn',dept:'计算机学院',field:'大模型软件技术、软件自动化',viewCount:0},
+          {id:57,name:'张晓凡',email:'xiaofan.zhang@sjtu.edu.cn',dept:'计算机学院',field:'人工智能，数字信号与图像处理',viewCount:0},
+          {id:58,name:'陈晨',email:'chen-chen@sjtu.edu.cn',dept:'计算机学院',field:'云计算系统、大模型系统',viewCount:0},
+          {id:59,name:'龙宇',email:'longyu@sjtu.edu.cn',dept:'计算机学院',field:'区块链',viewCount:0},
+          {id:60,name:'林云',email:'lin_yun@sjtu.edu.cn',dept:'计算机学院',field:'主要研究领域为软件工程，侧重代码、网页和AI模型的自动分析技术。目前的研究工作包括代码自动调试与测试、模型训练的可视化解释、恶意网页检测、代码的推荐与生成、运行时日志异常检测等。',viewCount:0},
+          {id:61,name:'舒汀',email:'tingshu@sjtu.edu.cn',dept:'计算机学院',field:'先进雷达电子防御技术、认知电子战技术、雷达电子战射频半实物仿真技术、实时信号处理技术',viewCount:0},
+          {id:62,name:'化存卿',email:'cqhua@sjtu.edu.cn',dept:'计算机学院',field:'5G/6G网络，无线网络安全，无线人工智能对抗',viewCount:0},
+          {id:63,name:'晏轶超',email:'yanyichao@sjtu.edu.cn',dept:'计算机学院',field:'计算机视觉、计算机图形学',viewCount:0},
+          {id:64,name:'戚正伟',email:'qizhwei@sjtu.edu.cn',dept:'计算机学院',field:'虚拟化与云计算、程序分析、软硬协同优化',viewCount:0},
+          {id:65,name:'苏跃增',email:'yzsu@sjtu.edu.cn',dept:'计算机学院',field:'电气自动化',viewCount:0},
+          {id:66,name:'李生红',email:'shli@sjtu.edu.cn',dept:'计算机学院',field:'网络空间资源安全管理、人工智能与机器学习、信号与信息处理',viewCount:0},
+          {id:67,name:'李柠',email:'ning_li@sjtu.edu.cn',dept:'计算机学院',field:'分布式优化与控制、工业大数据分析、故障预测与智能运维、自助系统主动感知',viewCount:0},
+          {id:68,name:'李颉',email:'lijiecs@sjtu.edu.cn',dept:'计算机学院',field:'大数据人工智能、区块链，物联网、边缘计算、网络安全、计算机体系结构。',viewCount:0},
+          {id:69,name:'俞嘉地',email:'jiadiyu@sjtu.edu.cn',dept:'计算机学院',field:'移动与感知计算，物联网，网络安全',viewCount:0},
+          {id:70,name:'马汝辉',email:'ruhuima@sjtu.edu.cn',dept:'计算机学院',field:'云计算、大数据、AI、智能制造',viewCount:0},
+          {id:71,name:'吴奇',email:'wuqi7812@sjtu.edu.cn',dept:'计算机学院',field:'脑机接口，人体姿态识别、深度学习建模、人机交互、故障诊断',viewCount:0},
+          {id:72,name:'陈全',email:'chen-quan@sjtu.edu.cn',dept:'计算机学院',field:'云计算，数据中心管理',viewCount:0},
+          {id:73,name:'陈秀真',email:'chenxz@sjtu.edu.cn',dept:'计算机学院',field:'网络安全综合监控与管理，信息安全风险评估，网络安全检测，网络安全态势感知，智能网联汽车信息安全，工业控制系统信息安全，大数据挖掘分析',viewCount:0},
+          {id:74,name:'范磊',email:'fanlei@sjtu.edu.cn',dept:'计算机学院',field:'毕业于上海交通大学电子信息与电气工程学院，获工学博士学位。分别于2009年及2015年赴美国康涅狄格大学与弗吉尼亚联邦大学访问研究。主要研究方向为密码协议设计与安全性分析、区块链与数字货币、网络安全管',viewCount:0},
+          {id:75,name:'赵刚',email:'nmzhaogang@sjtu.edu.cn',dept:'计算机学院',field:'高电压试验技术，低成本开源测量技术和软件',viewCount:0},
+          {id:76,name:'乔宇',email:'qiaoyu@sjtu.edu.cn',dept:'计算机学院',field:'人工智能，计算机视觉，图像处理，医学图像处理，模式识别，数据挖掘',viewCount:0},
+          {id:77,name:'刘功申',email:'lgshen@sjtu.edu.cn',dept:'计算机学院',field:'人工智能安全、自然语言理解、内容安全、恶意代码防范等',viewCount:0},
+          {id:78,name:'赵春宇',email:'zhaocy@sjtu.edu.cn',dept:'计算机学院',field:'智能机电系统的研究与应用：城市水体水质监测与水体养护无人船；六足物流机器人；智能种子处理机；经皮无线能量传输；基于低频电磁超材料的无线能量传输增强技术；蓄电池主动均衡及状态监测系统；在线电能质量分析仪',viewCount:0},
+          {id:79,name:'邱卫东',email:'qiuwd@sjtu.edu.cn',dept:'计算机学院',field:'密码分析/密码工程、人工智能安全、大数据隐私保护',viewCount:0},
+          {id:80,name:'徐雷',email:'leixu@sjtu.edu.cn',dept:'计算机学院',field:'机器学习、类脑智能、类AlphaGo 系统、计算精准医学、组学大数据分析、重大慢病诊断标志物，计算金融学',viewCount:0},
+          {id:81,name:'尚策',email:'shangce@sjtu.edu.cn',dept:'计算机学院',field:'能源互联网、新型电力系统、能源政策',viewCount:0},
+          {id:82,name:'曹健',email:'cao-jian@sjtu.edu.cn',dept:'计算机学院',field:'1. 智能数据分析与决策支持：要让数据发挥价值，不管数据的规模是“大”还是“小”，其中的核心问题是如何在理解数据的基础上进行深入分析并提供决策支持。实验室近年来在此方向上进行了重点研究，并与许多企业进',viewCount:0},
+          {id:83,name:'马利庄',email:'lzma@sjtu.edu.cn',dept:'计算机学院',field:'计算机视觉、跨媒体智能、计算机图形学与数字图像处理等方面',viewCount:0},
+          {id:84,name:'张伟楠',email:'wnzhang@sjtu.edu.cn',dept:'计算机学院',field:'机器学习、强化学习、大数据挖掘、信息检索、知识图谱',viewCount:0},
+          {id:85,name:'谷大武',email:'dwgu@sjtu.edu.cn',dept:'计算机学院',field:'1.密码理论与算法2. 软件与系统安全3. 硬件系统与嵌入式安全4. 大数据与云计算安全隐私技术5. 金融安全',viewCount:0},
+          {id:86,name:'管海兵',email:'hbguan@sjtu.edu.cn',dept:'计算机学院',field:'virtual machine; Bioinspiration',viewCount:0},
+          {id:87,name:'过敏意',email:'myguo@sjtu.edu.cn',dept:'计算机学院',field:'Parallel and distributed processing, Parallelizing compilers, Pervasive Computing, Software engineer',viewCount:0},
+          {id:88,name:'俞凯',email:'kai.yu@sjtu.edu.cn',dept:'计算机学院',field:'概率图模型、深度学习、迁移学习、强化学习  统计语音信号处理、语音识别、说话人识别、音频事件分析、语音合成  自然语言处理、语言模型、语义理解、问答  对话管理、交互控制、人机混合智能',viewCount:0},
+          {id:89,name:'杨小康',email:'xkyang@sjtu.edu.cn',dept:'计算机学院',field:'1. 智能视频分析与监控  2. 图像编码与通信  3. 模式识别与机器学习',viewCount:0},
+          {id:90,name:'李建华',email:'lijh888@sjtu.edu.cn',dept:'计算机学院',field:'信息内容安全管理、网络攻防与信息系统检测评估、网络安全管理、密码学及应用等。',viewCount:0},
+          {id:91,name:'裴凌',email:'ling.pei@sjtu.edu.cn',dept:'计算机学院',field:'导航定位与空间信息',viewCount:0},
+          {id:92,name:'周亮',email:'liangzhou@sjtu.edu.cn',dept:'计算机学院',field:'射频前端三维集成、系统级封装、电磁兼容、射频电路',viewCount:0},
+          {id:93,name:'何谷峰',email:'gufenghe@sjtu.edu.cn',dept:'计算机学院',field:'光电材料与器件',viewCount:0},
+          {id:94,name:'李超',email:'chaol@sjtu.edu.cn',dept:'计算机学院',field:'智能计算系统、计算机体系结构、云计算和大数据',viewCount:0},
+          {id:95,name:'沈艳艳',email:'shenyy@sjtu.edu.cn',dept:'计算机学院',field:'大数据处理与分析研究',viewCount:0},
+          {id:96,name:'孔令和',email:'linghe.kong@sjtu.edu.cn',dept:'计算机学院',field:'物联网 大数据',viewCount:0},
+          {id:97,name:'高晓沨',email:'gaoxiaofeng@sjtu.edu.cn',dept:'计算机学院',field:'数据工程、数据挖掘、网络优化',viewCount:0},
+          {id:98,name:'陈贵海',email:'chen-gh@sjtu.edu.cn',dept:'计算机学院',field:'数据与网络工程、并行与分布式系统',viewCount:0},
+          {id:99,name:'蔡云泽',email:'yzcai@sjtu.edu.cn',dept:'计算机学院',field:'复杂系统的信息处理技术，信息融合，目标跟踪与制导',viewCount:0},
+          {id:100,name:'杨杰',email:'jieyang@sjtu.edu.cn',dept:'计算机学院',field:'人工智能 图像处理 模式识别 计算机视觉',viewCount:0},
+          {id:101,name:'马柯',email:'kema@sjtu.edu.cn',dept:'计算机学院',field:'电力电子与电力传动',viewCount:0},
+          {id:102,name:'王景川',email:'jchwang@sjtu.edu.cn',dept:'计算机学院',field:'机器人、移动机器人、视觉检测与识别技术、无人车、机器人控制技术、移动机器人地图创建与定位、导航技术',viewCount:0},
+          {id:103,name:'李喆',email:'zhe_li@sjtu.edu.cn',dept:'计算机学院',field:'高电压与绝缘技术、在线监测技术、人工智能',viewCount:0},
+          {id:104,name:'沈耀',email:'shen_yao@sjtu.edu.cn',dept:'计算机学院',field:'分布式计算，云计算，计算机网络，人工智能',viewCount:0},
+          {id:105,name:'吴林晟',email:'wallish@sjtu.edu.cn',dept:'集成电路学院',field:'1. 微波电路与器件2. 先进电子封装与异质集成 3. 纳米电磁学',viewCount:0},
+          {id:106,name:'贺光辉',email:'guanghui.he@sjtu.edu.cn',dept:'集成电路学院',field:'1、高能效电路设计2、高速无线通信系统基带芯片架构和电路设计3、实时智能图像处理算法和系统设计；4、深度神经网络硬件加速器设计',viewCount:0},
+          {id:107,name:'鲁国',email:'luguo2014@sjtu.edu.cn',dept:'集成电路学院',field:'视频编码与多媒体处理',viewCount:0},
+          {id:108,name:'王庆康',email:'Wangqingkang@sjtu.edu.cn',dept:'集成电路学院',field:'微/纳米光学、光电子、纳米制造和纳米器件',viewCount:0},
+          {id:109,name:'魏良明',email:'lmwei@sjtu.edu.cn',dept:'集成电路学院',field:'新型二次电池系统；含能材料',viewCount:0},
+          {id:110,name:'陈海宝',email:'haibaochen@sjtu.edu.cn',dept:'集成电路学院',field:'集成电路设计自动化、物联网智能系统、人工智能算法与硬件实现',viewCount:0},
+          {id:111,name:'刘景全',email:'jqliu@sjtu.edu.cn',dept:'集成电路学院',field:'智能MEMS传感器与微系统',viewCount:0},
+          {id:112,name:'王琴',email:'qinqinwang@sjtu.edu.cn',dept:'集成电路学院',field:'SoC设计与实现，集成电路设计，三维集成设计，算法及芯片实现',viewCount:0},
+          {id:113,name:'杨华',email:'hyang@sjtu.edu.cn',dept:'集成电路学院',field:'人工智能，计算机视觉，智能视频监控及应用。',viewCount:0},
+          {id:114,name:'许少伦',email:'slxu@sjtu.edu.cn',dept:'集成电路学院',field:'主要从事电动汽车充电管理、SCADA、能源管理及其自动化、电力系统优化、微电网方面的研究工作以及学生实践创新指导。',viewCount:0},
+          {id:115,name:'张爱新',email:'axzhang@sjtu.edu.cn',dept:'集成电路学院',field:'信息安全，密码学',viewCount:0},
+          {id:116,name:'王琳',email:'wanglin@sjtu.edu.cn',dept:'集成电路学院',field:'多自主体系统、复杂网络',viewCount:0},
+          {id:117,name:'马艺馨',email:'y.ma@sjtu.edu.cn',dept:'集成电路学院',field:'医疗仪器',viewCount:0},
+          {id:118,name:'尹毅',email:'yiny@sjtu.edu.cn',dept:'集成电路学院',field:'介质物理理论与应用，电气绝缘检测新技术，电力设备状态监测与评估技术',viewCount:0},
+          {id:119,name:'李新碗',email:'lixinwan@sjtu.edu.cn',dept:'集成电路学院',field:'光纤通信与传感系统',viewCount:0},
+          {id:120,name:'伍军',email:'junwuhn@sjtu.edu.cn',dept:'集成电路学院',field:'物联网技术及其安全、云计算/雾计算技术及其安全、下一代互联网及其安全、大数据技术及其安全等。',viewCount:0},
+          {id:121,name:'毛志刚',email:'maozhigang@sjtu.edu.cn',dept:'集成电路学院',field:'系统级芯片设计',viewCount:0},
+          {id:122,name:'吴越',email:'wuyue@sjtu.edu.cn',dept:'集成电路学院',field:'移动互联网安全，物联网安全',viewCount:0},
+          {id:123,name:'连勇',email:'eleliany@sjtu.edu.cn',dept:'集成电路学院',field:'低功耗电路设计，高能效信号处理，生物医疗电路与系统，嵌入式人工智能',viewCount:0},
+          {id:124,name:'宋利',email:'song_li@sjtu.edu.cn',dept:'集成电路学院',field:'图像处理、视频编码、人工智能',viewCount:0},
+          {id:125,name:'胡卫生',email:'wshu@sjtu.edu.cn',dept:'集成电路学院',field:'Broadband access networks  Optical switching and networks  Big data transportation',viewCount:0},
+          {id:126,name:'朱燕民',email:'yzhu@sjtu.edu.cn',dept:'集成电路学院',field:'数据挖掘、大数据分析、机器学习、物联网、移动计算',viewCount:0},
+          {id:127,name:'吴晨涛',email:'wuct@sjtu.edu.cn',dept:'集成电路学院',field:'大数据存储系统',viewCount:0},
+          {id:128,name:'刘亚东',email:'lyd@sjtu.edu.cn',dept:'集成电路学院',field:'电力设备故障诊断',viewCount:0},
+          {id:129,name:'张增辉',email:'zenghui.zhang@sjtu.edu.cn',dept:'集成电路学院',field:'毫米波雷达传感器、人工智能图像处理、空间信息技术等',viewCount:0},
+          {id:130,name:'熊箭',email:'xjarrow@sjtu.edu.cn',dept:'集成电路学院',field:'无人机系统，无线资源协作、智能无线通信',viewCount:0},
+          {id:131,name:'王赓',email:'wgeng@sjtu.edu.cn',dept:'集成电路学院',field:'嵌入式系统技术、RFID与物联网系统技术',viewCount:0},
+          {id:132,name:'王晗',email:'wanghan9894@sjtu.edu.cn',dept:'电气工程学院',field:'电力-交通耦合网络运行分析与优化、电力新通信',viewCount:0},
+          {id:133,name:'华浩',email:'huahao@sjtu.edu.cn',dept:'电气工程学院',field:'电机系统，电气化交通、风力发电、电机伺服',viewCount:0},
+          {id:134,name:'李然',email:'rl272@sjtu.edu.cn',dept:'电气工程学院',field:'1.电力大数据2.电力市场3.“电气-交通”综合系统',viewCount:0},
+          {id:135,name:'贺兴',email:'hexing@sjtu.edu.cn',dept:'电气工程学院',field:'时空大数据分析、能源数字孪生系统、虚拟孪生与元宇宙',viewCount:0},
+          {id:136,name:'文书礼',email:'wenshuli@sjtu.edu.cn',dept:'电气工程学院',field:'海洋交通电气化、人工智能、能源互联网、智能优化',viewCount:0},
+          {id:137,name:'李睿',email:'liruiqd@sjtu.edu.cn',dept:'电气工程学院',field:'面向可再生能源发电和电池储能的高效电力电子变换与电网接入技术',viewCount:0},
+          {id:138,name:'张建文',email:'icebergzjw@sjtu.edu.cn',dept:'电气工程学院',field:'长期从事大功率电力电子，电能路由器、新能源并网和直流组网、电工新理论等方面的研究',viewCount:0},
+          {id:139,name:'王承民',email:'wangchengmin@sjtu.edu.cn',dept:'电气工程学院',field:'电力系统优化规划与电力市场，智慧能源等',viewCount:0},
+          {id:140,name:'王勇',email:'wangyong75@sjtu.edu.cn',dept:'电气工程学院',field:'电力电子与电力传动',viewCount:0},
+          {id:141,name:'姜淑忠',email:'szjiang@sjtu.edu.cn',dept:'电气工程学院',field:'电机设计制造、电机功率驱动及系统控制、电机及其应用系统',viewCount:0},
+          {id:142,name:'陈玉泉',email:'yqchen@sjtu.edu.cn',dept:'电气工程学院',field:'人工智能、自然语言处理，信息检索',viewCount:0},
+          {id:143,name:'黄其煜',email:'qiyu@sjtu.edu.cn',dept:'电气工程学院',field:'半导体工艺与器件；',viewCount:0},
+          {id:144,name:'解大',email:'xieda@sjtu.edu.cn',dept:'电气工程学院',field:'电力系统及其自动化，能源互联网，电力系统分析，新能源接入，电动汽车等',viewCount:0},
+          {id:145,name:'邹福泰',email:'zoufutai@sjtu.edu.cn',dept:'电气工程学院',field:'网络威胁态势感知、网络攻击追踪溯源、恶意代码入侵检测、人工智能安全对抗、僵尸网络检测、DNS安全、区块链与大数据分析',viewCount:0},
+          {id:146,name:'盛戈皞',email:'shenghe@sjtu.edu.cn',dept:'电气工程学院',field:'电力设备状态监测与智能化；输变电设备物联网',viewCount:0},
+          {id:147,name:'张峰',email:'fzhang@sjtu.edu.cn',dept:'电气工程学院',field:'电工理论与新技术，数据采集与智能检测方法，边缘检测，现代轨道交通技术的建模分析和试验方法，基于嵌入式、DSP和虚拟仪器等现代电子技术的应用等。',viewCount:0},
+          {id:148,name:'李德伟',email:'dwli@sjtu.edu.cn',dept:'电气工程学院',field:'智能交通、复杂系统优化与控制、智能机器人、智能制造系统、人工智能',viewCount:0},
+          {id:149,name:'陶卫',email:'taowei@sjtu.edu.cn',dept:'电气工程学院',field:'智能传感器及光学精密检测，生物医学探测',viewCount:0},
+          {id:150,name:'韩韬',email:'than@sjtu.edu.cn',dept:'电气工程学院',field:'仪器科学与技术',viewCount:0},
+          {id:151,name:'孙卫强',email:'sunwq@sjtu.edu.cn',dept:'电气工程学院',field:'健康大数据、大数据网络传输、光纤通信网、网络算法、网络优化',viewCount:0},
+          {id:152,name:'周林杰',email:'ljzhou@sjtu.edu.cn',dept:'电气工程学院',field:'光电子器件和芯片',viewCount:0},
+          {id:153,name:'姚建国',email:'jianguo.yao@sjtu.edu.cn',dept:'电气工程学院',field:'云计算；工业大数据；工业互联网',viewCount:0},
+          {id:154,name:'朱浩瑾',email:'zhu-hj@sjtu.edu.cn',dept:'电气工程学院',field:'网络安全，隐私保护，移动安全',viewCount:0},
+          {id:155,name:'李国强',email:'li.g@sjtu.edu.cn',dept:'电气工程学院',field:'软件工程、智能系统',viewCount:0},
+          {id:156,name:'卢俊国',email:'jglu@sjtu.edu.cn',dept:'电气工程学院',field:'视觉测量与图像图形处理，工业大数据，多智能体自主协同对抗技术，智能机器人及其系统，机器人3D抓取，ROS等',viewCount:0},
+          {id:157,name:'江秀臣',email:'xcjiang@sjtu.edu.cn',dept:'电气工程学院',field:'泛在电力物联网、智能电网',viewCount:0},
+          {id:158,name:'冯冬涵',email:'seed@sjtu.edu.cn',dept:'电气工程学院',field:'电力系统、智能电网、能源互联网、泛在电力物联网',viewCount:0},
+          {id:159,name:'何光宇',email:'gyhe@sjtu.edu.cn',dept:'电气工程学院',field:'智能用电(节能与需求响应、用户侧能量管理系统) 与智能调度（状态估计系统、负荷预测、经济运行）',viewCount:0},
+          {id:160,name:'邰能灵',email:'nltai@sjtu.edu.cn',dept:'电气工程学院',field:'智能电网，能源互联网',viewCount:0},
+          {id:161,name:'刘学智',email:'liuxz@sjtu.edu.cn',dept:'电气工程学院',field:'多种能源耦合系统、电-冷-热综合能源系统（电/热/气/氢网、热泵、热电联供及光伏-储能系统等）、虚拟电厂与人工智能',viewCount:0},
+          {id:162,name:'钱诗友',email:'qshiyou@sjtu.edu.cn',dept:'电气工程学院',field:'大数据智能分析、云计算、数据分发、路径推荐',viewCount:0},
+          {id:163,name:'王坤东',email:'kdwang@sjtu.edu.cn',dept:'电气工程学院',field:'机器人技术；传感与测试技术；精密运动控制；微弱信号处理等',viewCount:0},
+          {id:164,name:'凌志斌',email:'lingzhibin@sjtu.edu.cn',dept:'电气工程学院',field:'储能技术，新能源发电，能量管理系统，电能质量',viewCount:0},
+          {id:165,name:'刘满华',email:'mhliu@sjtu.edu.cn',dept:'电气工程学院',field:'图像识别和人工智能',viewCount:0},
+          {id:166,name:'王丰华',email:'fhwang7723@sjtu.edu.cn',dept:'电气工程学院',field:'高电压与绝缘',viewCount:0},
+          {id:167,name:'姚锦元',email:'jyyao@sjtu.edu.cn',dept:'电气工程学院',field:'微纳集成制造',viewCount:0}
+        ],
+        advisorReviews:[],
+        nextAdvisorReviewId:1,
         reviews:[],
         nextUserId:1,nextReviewId:1
       };
@@ -282,21 +593,27 @@ createApp({
     if(currentUser.value) page.value = 'courses';
 
     // 登录
-    const loginForm = ref({username:'',password:''});
-    const regForm = ref({username:'',password:'',nickname:''});
+    const loginForm = ref({studentId:'',password:''});
+    const regForm = ref({studentId:'',password:'',nickname:''});
+
+    function validateStudentId(id){
+      return /^\d{12}$/.test(id);
+    }
 
     function doLogin(){
-      const u = db.value.users.find(u=>u.username===loginForm.value.username && u.password===loginForm.value.password);
-      if(!u) return alert('用户名或密码错误');
+      if(!validateStudentId(loginForm.value.studentId)) return alert('请输入12位数字学号');
+      const u = db.value.users.find(u=>u.studentId===loginForm.value.studentId && u.password===loginForm.value.password);
+      if(!u) return alert('学号或密码错误');
       currentUser.value = u;
       localStorage.setItem('crUser',JSON.stringify(u));
       page.value = 'courses';
     }
     function doRegister(){
-      const {username,password,nickname} = regForm.value;
-      if(!username||!password||!nickname) return alert('请填写完整信息');
-      if(db.value.users.find(u=>u.username===username)) return alert('用户名已存在');
-      const u = {id:db.value.nextUserId++,username,password,nickname};
+      const {studentId,password,nickname} = regForm.value;
+      if(!validateStudentId(studentId)) return alert('请输入12位数字学号');
+      if(!password||!nickname) return alert('请填写完整信息');
+      if(db.value.users.find(u=>u.studentId===studentId)) return alert('该学号已注册');
+      const u = {id:db.value.nextUserId++,studentId,password,nickname};
       db.value.users.push(u);
       save();
       alert('注册成功，请登录');
@@ -311,7 +628,7 @@ createApp({
     // ===== 课程列表 =====
     const keyword = ref('');
     const selectedCat = ref('全部');
-    const categories = ['全部','计算机','理学','外语'];
+    const categories = ['全部','公共基础课','专业基础课','专业前沿课','专业选修课'];
 
     function getCourseScores(courseId){
       const revs = db.value.reviews.filter(r=>r.courseId===courseId);
@@ -331,7 +648,7 @@ createApp({
       if(selectedCat.value!=='全部') list = list.filter(c=>c.category===selectedCat.value);
       if(keyword.value){
         const kw = keyword.value.toLowerCase();
-        list = list.filter(c=>c.name.toLowerCase().includes(kw)||c.teacher.toLowerCase().includes(kw));
+        list = list.filter(c=>c.name.toLowerCase().includes(kw)||c.teacher.toLowerCase().includes(kw)||c.code.toLowerCase().includes(kw));
       }
       return list;
     });
@@ -472,6 +789,112 @@ createApp({
       nextTick(()=>drawRadar());
     }
 
+
+    // ===== 导师列表 =====
+    const advisorKeyword = ref('');
+    const selectedDept = ref('全部');
+    const depts = ['全部','自动化与感知学院','人工智能学院','计算机学院','集成电路学院','电气工程学院'];
+
+    function getAdvisorScores(advisorId){
+      const revs = db.value.advisorReviews.filter(r=>r.advisorId===advisorId);
+      if(!revs.length) return {avgScore:0,avgGuide:0,avgAcademic:0,avgAttitude:0,avgResource:0,avgFreedom:0,reviewCount:0};
+      const avg = k => revs.reduce((s,r)=>s+r[k],0)/revs.length;
+      return {avgScore:(avg('guide')+avg('academic')+avg('attitude')+avg('resource')+avg('freedom'))/5,
+        avgGuide:avg('guide'),avgAcademic:avg('academic'),avgAttitude:avg('attitude'),
+        avgResource:avg('resource'),avgFreedom:avg('freedom'),reviewCount:revs.length};
+    }
+
+    const advisorsWithScores = computed(()=>
+      db.value.advisors.map(a=>({...a,...getAdvisorScores(a.id)}))
+    );
+
+    const filteredAdvisors = computed(()=>{
+      let list = advisorsWithScores.value;
+      if(selectedDept.value!=='全部') list = list.filter(a=>a.dept===selectedDept.value);
+      if(advisorKeyword.value){
+        const kw = advisorKeyword.value.toLowerCase();
+        list = list.filter(a=>a.name.includes(kw)||a.dept.includes(kw)||a.field.toLowerCase().includes(kw));
+      }
+      return list;
+    });
+
+    // ===== 导师详情 =====
+    const detailAdvisorId = ref(null);
+    const detailAdvisor = computed(()=>advisorsWithScores.value.find(a=>a.id===detailAdvisorId.value)||{name:'',dept:'',field:'',email:'',avgScore:0,reviewCount:0});
+    const advisorReviews = computed(()=>{
+      return db.value.advisorReviews.filter(r=>r.advisorId===detailAdvisorId.value)
+        .map(r=>({...r,overall:(r.guide+r.academic+r.attitude+r.resource+r.freedom)/5,
+          username:(db.value.users.find(u=>u.id===r.userId)||{}).nickname||'匿名'}))
+        .sort((a,b)=>b.likes-a.likes||b.timestamp-a.timestamp);
+    });
+
+    const advisorRadarCanvas = ref(null);
+
+    function openAdvisor(id){
+      detailAdvisorId.value = id;
+      const a = db.value.advisors.find(a=>a.id===id);
+      if(a) a.viewCount++;
+      save();
+      page.value = 'advisorDetail';
+      nextTick(()=>drawAdvisorRadar());
+    }
+
+    function drawAdvisorRadar(){
+      const canvas = advisorRadarCanvas.value;
+      if(!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const cx=140,cy=140,radius=100;
+      const labels=['指导','学术','态度','资源','自由度'];
+      const a = detailAdvisor.value;
+      const vals = [a.avgGuide,a.avgAcademic,a.avgAttitude,a.avgResource,a.avgFreedom];
+      const step = Math.PI*2/5;
+      const start = -Math.PI/2;
+      ctx.clearRect(0,0,280,280);
+      for(let layer=1;layer<=5;layer++){
+        ctx.beginPath();
+        const r = radius*layer/5;
+        for(let i=0;i<5;i++){const ag=start+i*step;const x=cx+r*Math.cos(ag),y=cy+r*Math.sin(ag);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
+        ctx.closePath();ctx.strokeStyle='#ddd';ctx.lineWidth=1;ctx.stroke();
+      }
+      for(let i=0;i<5;i++){const ag=start+i*step;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+radius*Math.cos(ag),cy+radius*Math.sin(ag));ctx.strokeStyle='#ddd';ctx.stroke();}
+      ctx.beginPath();
+      for(let i=0;i<5;i++){const ag=start+i*step;const r=radius*vals[i]/5;const x=cx+r*Math.cos(ag),y=cy+r*Math.sin(ag);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
+      ctx.closePath();ctx.fillStyle='rgba(76,175,80,0.3)';ctx.fill();ctx.strokeStyle='#4CAF50';ctx.lineWidth=2;ctx.stroke();
+      ctx.fillStyle='#333';ctx.font='14px sans-serif';ctx.textAlign='center';
+      for(let i=0;i<5;i++){const ag=start+i*step;const lx=cx+(radius+20)*Math.cos(ag),ly=cy+(radius+20)*Math.sin(ag)+5;ctx.fillText(labels[i],lx,ly);}
+    }
+
+    function likeAdvisorReview(id){const r=db.value.advisorReviews.find(r=>r.id===id);if(r){r.likes++;save();}}
+    function dislikeAdvisorReview(id){const r=db.value.advisorReviews.find(r=>r.id===id);if(r){r.dislikes++;save();}}
+
+    // ===== 导师写评价 =====
+    const advisorDimensions = [
+      {key:'guide',label:'指导水平'},{key:'academic',label:'学术能力'},
+      {key:'attitude',label:'导师态度'},{key:'resource',label:'科研资源'},{key:'freedom',label:'自由度'}
+    ];
+    const advisorTags = ['认真负责','学术大牛','放养型','push型','资源丰富','氛围好','耐心','有项目','好毕业'];
+    const advisorWriteForm = ref({guide:2.5,academic:2.5,attitude:2.5,resource:2.5,freedom:2.5,comment:'',tags:[]});
+
+    function toggleAdvisorTag(t){
+      const idx=advisorWriteForm.value.tags.indexOf(t);
+      idx===-1?advisorWriteForm.value.tags.push(t):advisorWriteForm.value.tags.splice(idx,1);
+    }
+
+    function submitAdvisorReview(){
+      if(!advisorWriteForm.value.comment.trim()) return alert('请输入评价内容');
+      const r = {
+        id:db.value.nextAdvisorReviewId++,advisorId:detailAdvisorId.value,userId:currentUser.value.id,
+        guide:advisorWriteForm.value.guide,academic:advisorWriteForm.value.academic,
+        attitude:advisorWriteForm.value.attitude,resource:advisorWriteForm.value.resource,
+        freedom:advisorWriteForm.value.freedom,comment:advisorWriteForm.value.comment,
+        tags:advisorWriteForm.value.tags.join(' · '),likes:0,dislikes:0,timestamp:Date.now()
+      };
+      db.value.advisorReviews.push(r);save();
+      alert('评价发布成功！');
+      advisorWriteForm.value={guide:2.5,academic:2.5,attitude:2.5,resource:2.5,freedom:2.5,comment:'',tags:[]};
+      page.value='advisorDetail';nextTick(()=>drawAdvisorRadar());
+    }
+
     // ===== 排行榜 =====
     const rankTab = ref(0);
     const rankedCourses = computed(()=>{
@@ -487,7 +910,10 @@ createApp({
     }
 
     return {
-      page,currentUser,loginForm,regForm,doLogin,doRegister,doLogout,
+      page,currentUser,loginForm,regForm,doLogin,doRegister,doLogout,validateStudentId,
+      advisorKeyword,selectedDept,depts,filteredAdvisors,openAdvisor,
+      detailAdvisor,advisorReviews,advisorRadarCanvas,likeAdvisorReview,dislikeAdvisorReview,
+      advisorDimensions,advisorTags,advisorWriteForm,toggleAdvisorTag,submitAdvisorReview,
       keyword,selectedCat,categories,filteredCourses,getStars,
       detailCourse,courseReviews,radarCanvas,openCourse,likeReview,dislikeReview,
       dimensions,allTags,writeForm,videoInput,toggleTag,onVideoSelect,submitReview,
