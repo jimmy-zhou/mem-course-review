@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
 <title>课程评价社区</title>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f5f5;color:#333;max-width:480px;margin:0 auto;min-height:100vh;position:relative;padding-bottom:60px}
@@ -327,17 +328,14 @@ textarea:focus{border-color:#4CAF50}
 
 <script>
 const {createApp,ref,computed,watch,nextTick,onMounted} = Vue;
+const SUPABASE_URL = 'https://ezmxdgwrlgtuobfrmlbd.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV6bXhkZ3dybGd0dW9iZnJtbGJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4NzAxMTQsImV4cCI6MjA5MjQ0NjExNH0.m0rjwgLBKLtI0-v3yeWs5Ew60aGROaGwBgJvaUSHHeM';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 createApp({
   setup(){
-    // ===== 数据层 =====
-    const STORAGE_KEY = 'courseReviewApp';
-    function loadData(){
-      const d = localStorage.getItem(STORAGE_KEY);
-      if(d) return JSON.parse(d);
-      const init = {
-        users:[],
-        courses:[
+    // ===== 静态数据（课程和导师不变，前端保存） =====
+    const courses = [
           {id:1,name:'学术英语',teacher:'李宏德',category:'公共基础课',code:'FL6001',credits:2,semester:'26春季',required:true,viewCount:0},
           {id:2,name:'学术英语',teacher:'王冬燕',category:'公共基础课',code:'FL6001',credits:2,semester:'26春季',required:true,viewCount:0},
           {id:3,name:'学术英语',teacher:'王越西',category:'公共基础课',code:'FL6001',credits:2,semester:'26春季',required:true,viewCount:0},
@@ -406,8 +404,8 @@ createApp({
           {id:66,name:'大规模集成电路概述',teacher:'毛志刚',category:'专业选修课',code:'MEM8307',credits:2,semester:'25秋季',required:false,viewCount:0},
           {id:67,name:'新型电力系统技术概论',teacher:'王志新',category:'专业选修课',code:'MEM8308',credits:2,semester:'26春季',required:false,viewCount:0},
           {id:68,name:'智能机器人',teacher:'王景川',category:'专业选修课',code:'MEM8309',credits:2,semester:'26春季',required:false,viewCount:0}
-        ],
-        advisors:[
+    ];
+    const advisors = [
           {id:1,name:'葛骑岐',email:'geqq@sjtu.edu.cn',dept:'自动化与感知学院',field:'换能器基阵与声纳；车船绿色动力；空海潜平台及通信定位；海洋光纤传感与多场融合探测',viewCount:0},
           {id:2,name:'李建勋',email:'lijx@sjtu.edu.cn',dept:'自动化与感知学院',field:'信息融合',viewCount:0},
           {id:3,name:'江俊杰',email:'jiangjunjie@sjtu.edu.cn',dept:'自动化与感知学院',field:'电力设备状态监测技术、光学传感技术、高温超导应用技术',viewCount:0},
@@ -575,47 +573,59 @@ createApp({
           {id:165,name:'刘满华',email:'mhliu@sjtu.edu.cn',dept:'电气工程学院',field:'图像识别和人工智能',viewCount:0},
           {id:166,name:'王丰华',email:'fhwang7723@sjtu.edu.cn',dept:'电气工程学院',field:'高电压与绝缘',viewCount:0},
           {id:167,name:'姚锦元',email:'jyyao@sjtu.edu.cn',dept:'电气工程学院',field:'微纳集成制造',viewCount:0}
-        ],
-        advisorReviews:[],
-        nextAdvisorReviewId:1,
-        reviews:[],
-        nextUserId:1,nextReviewId:1
-      };
-      localStorage.setItem(STORAGE_KEY,JSON.stringify(init));
-      return init;
-    }
-    const db = ref(loadData());
-    function save(){ localStorage.setItem(STORAGE_KEY,JSON.stringify(db.value)); }
+    ];
 
-    // ===== 状态 =====
+    // ===== 响应式状态 =====
     const page = ref('login');
     const currentUser = ref(JSON.parse(localStorage.getItem('crUser')||'null'));
     if(currentUser.value) page.value = 'courses';
+    const reviews = ref([]);
+    const advisorReviewsData = ref([]);
+    const users = ref([]);
 
-    // 登录
+    // ===== Supabase 数据加载 =====
+    async function loadReviews(){
+      const {data} = await supabase.from('reviews').select('*');
+      if(data) reviews.value = data;
+    }
+    async function loadAdvisorReviews(){
+      const {data} = await supabase.from('advisor_reviews').select('*');
+      if(data) advisorReviewsData.value = data;
+    }
+    async function loadUsers(){
+      const {data} = await supabase.from('users').select('id,student_id,nickname');
+      if(data) users.value = data;
+    }
+    async function loadAll(){ await Promise.all([loadReviews(), loadAdvisorReviews(), loadUsers()]); }
+
+    onMounted(()=>loadAll());
+
+    // ===== 登录注册 =====
     const loginForm = ref({studentId:'',password:''});
     const regForm = ref({studentId:'',password:'',nickname:''});
 
-    function validateStudentId(id){
-      return /^\d{12}$/.test(id);
-    }
+    function validateStudentId(id){ return /^\d{12}$/.test(id); }
 
-    function doLogin(){
+    async function doLogin(){
       if(!validateStudentId(loginForm.value.studentId)) return alert('请输入12位数字学号');
-      const u = db.value.users.find(u=>u.studentId===loginForm.value.studentId && u.password===loginForm.value.password);
-      if(!u) return alert('学号或密码错误');
-      currentUser.value = u;
-      localStorage.setItem('crUser',JSON.stringify(u));
+      const {data,error} = await supabase.from('users')
+        .select('*').eq('student_id',loginForm.value.studentId).eq('password',loginForm.value.password).single();
+      if(error||!data) return alert('学号或密码错误');
+      currentUser.value = {id:data.id,studentId:data.student_id,nickname:data.nickname};
+      localStorage.setItem('crUser',JSON.stringify(currentUser.value));
       page.value = 'courses';
+      loadAll();
     }
-    function doRegister(){
+    async function doRegister(){
       const {studentId,password,nickname} = regForm.value;
       if(!validateStudentId(studentId)) return alert('请输入12位数字学号');
       if(!password||!nickname) return alert('请填写完整信息');
-      if(db.value.users.find(u=>u.studentId===studentId)) return alert('该学号已注册');
-      const u = {id:db.value.nextUserId++,studentId,password,nickname};
-      db.value.users.push(u);
-      save();
+      const {data,error} = await supabase.from('users')
+        .insert({student_id:studentId,password,nickname}).select().single();
+      if(error){
+        if(error.code==='23505') return alert('该学号已注册');
+        return alert('注册失败：'+error.message);
+      }
       alert('注册成功，请登录');
       page.value = 'login';
     }
@@ -631,7 +641,7 @@ createApp({
     const categories = ['全部','公共基础课','专业基础课','专业前沿课','专业选修课'];
 
     function getCourseScores(courseId){
-      const revs = db.value.reviews.filter(r=>r.courseId===courseId);
+      const revs = reviews.value.filter(r=>r.course_id===courseId);
       if(!revs.length) return {avgScore:0,avgTeaching:0,avgContent:0,avgEasy:0,avgGrading:0,avgGain:0,reviewCount:0};
       const avg = k => revs.reduce((s,r)=>s+r[k],0)/revs.length;
       return {avgScore:(avg('teaching')+avg('content')+avg('easy')+avg('grading')+avg('gain'))/5,
@@ -639,9 +649,7 @@ createApp({
         avgGrading:avg('grading'),avgGain:avg('gain'),reviewCount:revs.length};
     }
 
-    const coursesWithScores = computed(()=>
-      db.value.courses.map(c=>({...c,...getCourseScores(c.id)}))
-    );
+    const coursesWithScores = computed(()=>courses.map(c=>({...c,...getCourseScores(c.id)})));
 
     const filteredCourses = computed(()=>{
       let list = coursesWithScores.value;
@@ -661,22 +669,20 @@ createApp({
 
     // ===== 课程详情 =====
     const detailCourseId = ref(null);
-    const detailCourse = computed(()=>coursesWithScores.value.find(c=>c.id===detailCourseId.value)||{name:'',teacher:'',avgScore:0,reviewCount:0});
+    const detailCourse = computed(()=>coursesWithScores.value.find(c=>c.id===detailCourseId.value)||{name:'',teacher:'',avgScore:0,reviewCount:0,code:'',credits:0,semester:''});
     const courseReviews = computed(()=>{
-      return db.value.reviews.filter(r=>r.courseId===detailCourseId.value)
-        .map(r=>({...r,overall:(r.teaching+r.content+r.easy+r.grading+r.gain)/5,
-          username: (db.value.users.find(u=>u.id===r.userId)||{}).nickname||'匿名'}))
-        .sort((a,b)=>b.likes-a.likes||b.timestamp-a.timestamp);
+      return reviews.value.filter(r=>r.course_id===detailCourseId.value)
+        .map(r=>{
+          const u = users.value.find(u=>u.id===r.user_id);
+          return {...r,overall:(r.teaching+r.content+r.easy+r.grading+r.gain)/5,
+            username:u?u.nickname:'匿名',timestamp:new Date(r.created_at).getTime()};
+        }).sort((a,b)=>b.likes-a.likes||b.timestamp-a.timestamp);
     });
 
     const radarCanvas = ref(null);
 
     function openCourse(id){
       detailCourseId.value = id;
-      // 增加浏览量
-      const c = db.value.courses.find(c=>c.id===id);
-      if(c) c.viewCount++;
-      save();
       page.value = 'detail';
       nextTick(()=>drawRadar());
     }
@@ -689,106 +695,58 @@ createApp({
       const labels=['教学','内容','轻松','给分','收获'];
       const co = detailCourse.value;
       const vals = [co.avgTeaching,co.avgContent,co.avgEasy,co.avgGrading,co.avgGain];
-      const step = Math.PI*2/5;
-      const start = -Math.PI/2;
-
+      const step = Math.PI*2/5, start = -Math.PI/2;
       ctx.clearRect(0,0,280,280);
-
-      // 网格
       for(let layer=1;layer<=5;layer++){
-        ctx.beginPath();
-        const r = radius*layer/5;
-        for(let i=0;i<5;i++){
-          const a=start+i*step;
-          const x=cx+r*Math.cos(a),y=cy+r*Math.sin(a);
-          i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-        }
-        ctx.closePath();
-        ctx.strokeStyle='#ddd';ctx.lineWidth=1;ctx.stroke();
+        ctx.beginPath();const r=radius*layer/5;
+        for(let i=0;i<5;i++){const a=start+i*step;const x=cx+r*Math.cos(a),y=cy+r*Math.sin(a);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
+        ctx.closePath();ctx.strokeStyle='#ddd';ctx.lineWidth=1;ctx.stroke();
       }
-      // 轴线
-      for(let i=0;i<5;i++){
-        const a=start+i*step;
-        ctx.beginPath();ctx.moveTo(cx,cy);
-        ctx.lineTo(cx+radius*Math.cos(a),cy+radius*Math.sin(a));
-        ctx.strokeStyle='#ddd';ctx.stroke();
-      }
-      // 数据
+      for(let i=0;i<5;i++){const a=start+i*step;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+radius*Math.cos(a),cy+radius*Math.sin(a));ctx.strokeStyle='#ddd';ctx.stroke();}
       ctx.beginPath();
-      for(let i=0;i<5;i++){
-        const a=start+i*step;
-        const r=radius*vals[i]/5;
-        const x=cx+r*Math.cos(a),y=cy+r*Math.sin(a);
-        i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-      }
-      ctx.closePath();
-      ctx.fillStyle='rgba(76,175,80,0.3)';ctx.fill();
-      ctx.strokeStyle='#4CAF50';ctx.lineWidth=2;ctx.stroke();
-      // 标签
+      for(let i=0;i<5;i++){const a=start+i*step;const r=radius*vals[i]/5;const x=cx+r*Math.cos(a),y=cy+r*Math.sin(a);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
+      ctx.closePath();ctx.fillStyle='rgba(76,175,80,0.3)';ctx.fill();ctx.strokeStyle='#4CAF50';ctx.lineWidth=2;ctx.stroke();
       ctx.fillStyle='#333';ctx.font='14px sans-serif';ctx.textAlign='center';
-      for(let i=0;i<5;i++){
-        const a=start+i*step;
-        const lx=cx+(radius+20)*Math.cos(a),ly=cy+(radius+20)*Math.sin(a)+5;
-        ctx.fillText(labels[i],lx,ly);
-      }
+      for(let i=0;i<5;i++){const a=start+i*step;ctx.fillText(labels[i],cx+(radius+20)*Math.cos(a),cy+(radius+20)*Math.sin(a)+5);}
     }
 
-    function likeReview(id){
-      const r = db.value.reviews.find(r=>r.id===id);
-      if(r){r.likes++;save();}
+    async function likeReview(id){
+      const r = reviews.value.find(r=>r.id===id);
+      if(r){r.likes++;await supabase.from('reviews').update({likes:r.likes}).eq('id',id);}
     }
-    function dislikeReview(id){
-      const r = db.value.reviews.find(r=>r.id===id);
-      if(r){r.dislikes++;save();}
+    async function dislikeReview(id){
+      const r = reviews.value.find(r=>r.id===id);
+      if(r){r.dislikes++;await supabase.from('reviews').update({dislikes:r.dislikes}).eq('id',id);}
     }
 
     // ===== 写评价 =====
     const dimensions = [
-      {key:'teaching',label:'教学质量'},
-      {key:'content',label:'课程内容'},
-      {key:'easy',label:'轻松程度'},
-      {key:'grading',label:'给分好坏'},
-      {key:'gain',label:'收获程度'}
+      {key:'teaching',label:'教学质量'},{key:'content',label:'课程内容'},
+      {key:'easy',label:'轻松程度'},{key:'grading',label:'给分好坏'},{key:'gain',label:'收获程度'}
     ];
     const allTags = ['给分高','有趣','干货多','作业少','点名少','考试简单','老师好','实用'];
-    const writeForm = ref({teaching:2.5,content:2.5,easy:2.5,grading:2.5,gain:2.5,comment:'',tags:[],videoUrl:''});
-    const videoInput = ref(null);
+    const writeForm = ref({teaching:2.5,content:2.5,easy:2.5,grading:2.5,gain:2.5,comment:'',tags:[]});
 
     function toggleTag(t){
-      const idx = writeForm.value.tags.indexOf(t);
-      idx===-1 ? writeForm.value.tags.push(t) : writeForm.value.tags.splice(idx,1);
+      const idx=writeForm.value.tags.indexOf(t);
+      idx===-1?writeForm.value.tags.push(t):writeForm.value.tags.splice(idx,1);
     }
 
-    function onVideoSelect(e){
-      const file = e.target.files[0];
-      if(file) writeForm.value.videoUrl = URL.createObjectURL(file);
-    }
-
-    function submitReview(){
+    async function submitReview(){
       if(!writeForm.value.comment.trim()) return alert('请输入评价内容');
-      const r = {
-        id: db.value.nextReviewId++,
-        courseId: detailCourseId.value,
-        userId: currentUser.value.id,
-        teaching: writeForm.value.teaching,
-        content: writeForm.value.content,
-        easy: writeForm.value.easy,
-        grading: writeForm.value.grading,
-        gain: writeForm.value.gain,
-        comment: writeForm.value.comment,
-        tags: writeForm.value.tags.join(' · '),
-        videoUrl: '', // 视频blob URL不能持久化，仅演示
-        likes:0,dislikes:0,
-        timestamp: Date.now()
-      };
-      db.value.reviews.push(r);
-      save();
+      const {error} = await supabase.from('reviews').insert({
+        course_id:detailCourseId.value, user_id:currentUser.value.id,
+        teaching:writeForm.value.teaching, content:writeForm.value.content,
+        easy:writeForm.value.easy, grading:writeForm.value.grading, gain:writeForm.value.gain,
+        comment:writeForm.value.comment, tags:writeForm.value.tags.join(' · ')
+      });
+      if(error) return alert('发布失败：'+error.message);
       alert('评价发布成功！');
-      writeForm.value = {teaching:2.5,content:2.5,easy:2.5,grading:2.5,gain:2.5,comment:'',tags:[],videoUrl:''};
-      page.value = 'detail';
+      writeForm.value={teaching:2.5,content:2.5,easy:2.5,grading:2.5,gain:2.5,comment:'',tags:[]};
+      await loadReviews();
+      page.value='detail';
       nextTick(()=>drawRadar());
     }
-
 
     // ===== 导师列表 =====
     const advisorKeyword = ref('');
@@ -796,7 +754,7 @@ createApp({
     const depts = ['全部','自动化与感知学院','人工智能学院','计算机学院','集成电路学院','电气工程学院'];
 
     function getAdvisorScores(advisorId){
-      const revs = db.value.advisorReviews.filter(r=>r.advisorId===advisorId);
+      const revs = advisorReviewsData.value.filter(r=>r.advisor_id===advisorId);
       if(!revs.length) return {avgScore:0,avgGuide:0,avgAcademic:0,avgAttitude:0,avgResource:0,avgFreedom:0,reviewCount:0};
       const avg = k => revs.reduce((s,r)=>s+r[k],0)/revs.length;
       return {avgScore:(avg('guide')+avg('academic')+avg('attitude')+avg('resource')+avg('freedom'))/5,
@@ -804,9 +762,7 @@ createApp({
         avgResource:avg('resource'),avgFreedom:avg('freedom'),reviewCount:revs.length};
     }
 
-    const advisorsWithScores = computed(()=>
-      db.value.advisors.map(a=>({...a,...getAdvisorScores(a.id)}))
-    );
+    const advisorsWithScores = computed(()=>advisors.map(a=>({...a,...getAdvisorScores(a.id)})));
 
     const filteredAdvisors = computed(()=>{
       let list = advisorsWithScores.value;
@@ -822,19 +778,18 @@ createApp({
     const detailAdvisorId = ref(null);
     const detailAdvisor = computed(()=>advisorsWithScores.value.find(a=>a.id===detailAdvisorId.value)||{name:'',dept:'',field:'',email:'',avgScore:0,reviewCount:0});
     const advisorReviews = computed(()=>{
-      return db.value.advisorReviews.filter(r=>r.advisorId===detailAdvisorId.value)
-        .map(r=>({...r,overall:(r.guide+r.academic+r.attitude+r.resource+r.freedom)/5,
-          username:(db.value.users.find(u=>u.id===r.userId)||{}).nickname||'匿名'}))
-        .sort((a,b)=>b.likes-a.likes||b.timestamp-a.timestamp);
+      return advisorReviewsData.value.filter(r=>r.advisor_id===detailAdvisorId.value)
+        .map(r=>{
+          const u = users.value.find(u=>u.id===r.user_id);
+          return {...r,overall:(r.guide+r.academic+r.attitude+r.resource+r.freedom)/5,
+            username:u?u.nickname:'匿名',timestamp:new Date(r.created_at).getTime()};
+        }).sort((a,b)=>b.likes-a.likes||b.timestamp-a.timestamp);
     });
 
     const advisorRadarCanvas = ref(null);
 
     function openAdvisor(id){
       detailAdvisorId.value = id;
-      const a = db.value.advisors.find(a=>a.id===id);
-      if(a) a.viewCount++;
-      save();
       page.value = 'advisorDetail';
       nextTick(()=>drawAdvisorRadar());
     }
@@ -847,12 +802,10 @@ createApp({
       const labels=['指导','学术','态度','资源','自由度'];
       const a = detailAdvisor.value;
       const vals = [a.avgGuide,a.avgAcademic,a.avgAttitude,a.avgResource,a.avgFreedom];
-      const step = Math.PI*2/5;
-      const start = -Math.PI/2;
+      const step = Math.PI*2/5, start = -Math.PI/2;
       ctx.clearRect(0,0,280,280);
       for(let layer=1;layer<=5;layer++){
-        ctx.beginPath();
-        const r = radius*layer/5;
+        ctx.beginPath();const r=radius*layer/5;
         for(let i=0;i<5;i++){const ag=start+i*step;const x=cx+r*Math.cos(ag),y=cy+r*Math.sin(ag);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
         ctx.closePath();ctx.strokeStyle='#ddd';ctx.lineWidth=1;ctx.stroke();
       }
@@ -861,11 +814,17 @@ createApp({
       for(let i=0;i<5;i++){const ag=start+i*step;const r=radius*vals[i]/5;const x=cx+r*Math.cos(ag),y=cy+r*Math.sin(ag);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
       ctx.closePath();ctx.fillStyle='rgba(76,175,80,0.3)';ctx.fill();ctx.strokeStyle='#4CAF50';ctx.lineWidth=2;ctx.stroke();
       ctx.fillStyle='#333';ctx.font='14px sans-serif';ctx.textAlign='center';
-      for(let i=0;i<5;i++){const ag=start+i*step;const lx=cx+(radius+20)*Math.cos(ag),ly=cy+(radius+20)*Math.sin(ag)+5;ctx.fillText(labels[i],lx,ly);}
+      for(let i=0;i<5;i++){const ag=start+i*step;ctx.fillText(labels[i],cx+(radius+20)*Math.cos(ag),cy+(radius+20)*Math.sin(ag)+5);}
     }
 
-    function likeAdvisorReview(id){const r=db.value.advisorReviews.find(r=>r.id===id);if(r){r.likes++;save();}}
-    function dislikeAdvisorReview(id){const r=db.value.advisorReviews.find(r=>r.id===id);if(r){r.dislikes++;save();}}
+    async function likeAdvisorReview(id){
+      const r=advisorReviewsData.value.find(r=>r.id===id);
+      if(r){r.likes++;await supabase.from('advisor_reviews').update({likes:r.likes}).eq('id',id);}
+    }
+    async function dislikeAdvisorReview(id){
+      const r=advisorReviewsData.value.find(r=>r.id===id);
+      if(r){r.dislikes++;await supabase.from('advisor_reviews').update({dislikes:r.dislikes}).eq('id',id);}
+    }
 
     // ===== 导师写评价 =====
     const advisorDimensions = [
@@ -880,19 +839,21 @@ createApp({
       idx===-1?advisorWriteForm.value.tags.push(t):advisorWriteForm.value.tags.splice(idx,1);
     }
 
-    function submitAdvisorReview(){
+    async function submitAdvisorReview(){
       if(!advisorWriteForm.value.comment.trim()) return alert('请输入评价内容');
-      const r = {
-        id:db.value.nextAdvisorReviewId++,advisorId:detailAdvisorId.value,userId:currentUser.value.id,
-        guide:advisorWriteForm.value.guide,academic:advisorWriteForm.value.academic,
-        attitude:advisorWriteForm.value.attitude,resource:advisorWriteForm.value.resource,
-        freedom:advisorWriteForm.value.freedom,comment:advisorWriteForm.value.comment,
-        tags:advisorWriteForm.value.tags.join(' · '),likes:0,dislikes:0,timestamp:Date.now()
-      };
-      db.value.advisorReviews.push(r);save();
+      const {error} = await supabase.from('advisor_reviews').insert({
+        advisor_id:detailAdvisorId.value, user_id:currentUser.value.id,
+        guide:advisorWriteForm.value.guide, academic:advisorWriteForm.value.academic,
+        attitude:advisorWriteForm.value.attitude, resource:advisorWriteForm.value.resource,
+        freedom:advisorWriteForm.value.freedom, comment:advisorWriteForm.value.comment,
+        tags:advisorWriteForm.value.tags.join(' · ')
+      });
+      if(error) return alert('发布失败：'+error.message);
       alert('评价发布成功！');
       advisorWriteForm.value={guide:2.5,academic:2.5,attitude:2.5,resource:2.5,freedom:2.5,comment:'',tags:[]};
-      page.value='advisorDetail';nextTick(()=>drawAdvisorRadar());
+      await loadAdvisorReviews();
+      page.value='advisorDetail';
+      nextTick(()=>drawAdvisorRadar());
     }
 
     // ===== 排行榜 =====
@@ -900,7 +861,7 @@ createApp({
     const rankedCourses = computed(()=>{
       let list = [...coursesWithScores.value];
       if(rankTab.value===0) list.sort((a,b)=>b.avgScore-a.avgScore);
-      else list.sort((a,b)=>(b.reviewCount*2+b.viewCount)-(a.reviewCount*2+a.viewCount));
+      else list.sort((a,b)=>b.reviewCount-a.reviewCount);
       return list.slice(0,10);
     });
 
@@ -916,7 +877,7 @@ createApp({
       advisorDimensions,advisorTags,advisorWriteForm,toggleAdvisorTag,submitAdvisorReview,
       keyword,selectedCat,categories,filteredCourses,getStars,
       detailCourse,courseReviews,radarCanvas,openCourse,likeReview,dislikeReview,
-      dimensions,allTags,writeForm,videoInput,toggleTag,onVideoSelect,submitReview,
+      dimensions,allTags,writeForm,toggleTag,submitReview,
       rankTab,rankedCourses,formatDate
     };
   }
